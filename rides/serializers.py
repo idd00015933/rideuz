@@ -85,17 +85,19 @@ class RideCreateSerializer(serializers.ModelSerializer):
 class RideListSerializer(serializers.ModelSerializer):
     """
     Compact representation for search result lists.
-    Includes driver info, route, time, price, and remaining seats.
+    Includes driver info, route, time, price, remaining seats, and driver rating.
     """
 
     driver = DriverPublicSerializer(read_only=True)
     booked_seats = serializers.SerializerMethodField(read_only=True)
+    driver_rating = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model  = Ride
         fields = [
             "id",
             "driver",
+            "driver_rating",
             "origin",
             "destination",
             "departure_time",
@@ -112,17 +114,24 @@ class RideListSerializer(serializers.ModelSerializer):
     def get_booked_seats(self, obj):
         return obj.total_seats - obj.available_seats
 
+    def get_driver_rating(self, obj):
+        avg = obj.driver.reviews_received.aggregate(avg=models.Avg("rating"))["avg"]
+        if avg is None:
+            return 5.0  # New drivers start with a perfect rating
+        return round(avg, 1)
+
 
 class RideDetailSerializer(serializers.ModelSerializer):
     """
     Full read representation of a ride including coordinates, all seats,
-    and driver profile.
+    driver profile, driver rating, and whether the current user has reviewed.
     """
 
     driver = DriverPublicSerializer(read_only=True)
     seats  = SeatSerializer(many=True, read_only=True)
-    booked_seats = serializers.SerializerMethodField(read_only=True)
+    booked_seats  = serializers.SerializerMethodField(read_only=True)
     driver_rating = serializers.SerializerMethodField(read_only=True)
+    has_reviewed  = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model  = Ride
@@ -130,6 +139,7 @@ class RideDetailSerializer(serializers.ModelSerializer):
             "id",
             "driver",
             "driver_rating",
+            "has_reviewed",
             "origin",
             "destination",
             "origin_lat",
@@ -157,7 +167,15 @@ class RideDetailSerializer(serializers.ModelSerializer):
 
     def get_driver_rating(self, obj):
         avg = obj.driver.reviews_received.aggregate(avg=models.Avg("rating"))["avg"]
-        return round(avg, 1) if avg else None
+        if avg is None:
+            return 5.0  # New drivers start with a perfect rating
+        return round(avg, 1)
+
+    def get_has_reviewed(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return Review.objects.filter(ride=obj, reviewer=request.user).exists()
 
 
 # ---------------------------------------------------------------------------
