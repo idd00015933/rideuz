@@ -158,6 +158,8 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                         isLoading: prov.isLoading,
                         onToggle: prov.toggleOnline,
                       ),
+                      const SizedBox(height: 16),
+                      _RatingCard(rating: profile['driver_rating']),
                       const SizedBox(height: 28),
                     ],
                     Text('Full Name',
@@ -288,6 +290,85 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                 ),
               ),
             ),
+    );
+  }
+}
+
+class _RatingCard extends StatelessWidget {
+  const _RatingCard({required this.rating});
+  final dynamic rating;
+
+  @override
+  Widget build(BuildContext context) {
+    final double ratingValue =
+        (rating is num) ? (rating as num).toDouble() : 5.0;
+    final int fullStars = ratingValue.floor();
+    final bool hasHalf = (ratingValue - fullStars) >= 0.5;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppColors.warning.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.star_rounded, color: AppColors.warning, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Your Rating',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                Row(
+                  children: [
+                    Text(
+                      ratingValue.toStringAsFixed(1),
+                      style: GoogleFonts.poppins(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.warning,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Star row
+                    Row(
+                      children: List.generate(5, (i) {
+                        if (i < fullStars) {
+                          return const Icon(Icons.star_rounded,
+                              color: AppColors.warning, size: 18);
+                        } else if (i == fullStars && hasHalf) {
+                          return const Icon(Icons.star_half_rounded,
+                              color: AppColors.warning, size: 18);
+                        } else {
+                          return const Icon(Icons.star_outline_rounded,
+                              color: AppColors.warning, size: 18);
+                        }
+                      }),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '/ 5.0',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

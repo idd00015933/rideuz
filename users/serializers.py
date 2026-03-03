@@ -63,6 +63,7 @@ class DriverProfileSerializer(serializers.ModelSerializer):
     """
     profile_picture = serializers.ImageField(write_only=True, required=False)
     profile_picture_url = serializers.SerializerMethodField(read_only=True)
+    driver_rating = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = DriverProfile
@@ -74,8 +75,9 @@ class DriverProfileSerializer(serializers.ModelSerializer):
             "car_model",
             "plate_number",
             "is_online",
+            "driver_rating",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "driver_rating"]
 
     def get_profile_picture_url(self, obj):
         request = self.context.get("request")
@@ -83,6 +85,13 @@ class DriverProfileSerializer(serializers.ModelSerializer):
             return ""
         url = obj.profile_picture.url
         return request.build_absolute_uri(url) if request else url
+
+    def get_driver_rating(self, obj):
+        from django.db.models import Avg
+        avg = obj.user.reviews_received.aggregate(avg=Avg("rating"))["avg"]
+        if avg is None:
+            return 5.0  # New drivers start with a perfect rating
+        return round(avg, 1)
 
     def validate(self, attrs):
         full_name = attrs.get("full_name")
@@ -172,6 +181,7 @@ class PassengerProfileSerializer(serializers.ModelSerializer):
 class DriverPublicSerializer(serializers.ModelSerializer):
     """
     Driver info embedded in Ride responses for passengers.
+    Includes the driver's user `id` so the frontend can submit a review.
     """
 
     full_name = serializers.CharField(source="driver_profile.full_name", read_only=True)
@@ -186,6 +196,7 @@ class DriverPublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
+            "id",
             "phone_number",
             "full_name",
             "profile_picture_url",

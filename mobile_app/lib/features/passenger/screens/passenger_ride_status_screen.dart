@@ -63,6 +63,179 @@ class _PassengerRideStatusScreenState extends State<PassengerRideStatusScreen> {
     super.dispose();
   }
 
+  Future<void> _showRatingModal(Map<String, dynamic> ride) async {
+    final driverId = ride['driver']?['id'] as int?;
+    if (driverId == null) return;
+
+    int selectedRating = 5;
+    final commentCtrl = TextEditingController();
+
+    final submitted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.textHint,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Rate Your Ride',
+                    style: GoogleFonts.poppins(
+                        fontSize: 20, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'How was your experience with the driver?',
+                    style: GoogleFonts.poppins(
+                        fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 24),
+                  // Star selector
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (i) {
+                      final star = i + 1;
+                      return GestureDetector(
+                        onTap: () => setModalState(() => selectedRating = star),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: Icon(
+                            star <= selectedRating
+                                ? Icons.star_rounded
+                                : Icons.star_outline_rounded,
+                            color: AppColors.warning,
+                            size: 44,
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      _ratingLabel(selectedRating),
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.warning,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: commentCtrl,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: 'Leave a comment (optional)…',
+                      hintStyle: GoogleFonts.poppins(
+                          fontSize: 13, color: AppColors.textHint),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: Text(
+                        'Submit Rating',
+                        style: GoogleFonts.poppins(
+                            fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (submitted != true || !mounted) return;
+
+    final provider = context.read<RideProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    final ok = await provider.submitReview(
+      rideId: ride['id'] as int,
+      revieweeId: driverId,
+      rating: selectedRating,
+      comment: commentCtrl.text.trim(),
+    );
+
+    commentCtrl.dispose();
+
+    if (!mounted) return;
+    if (ok) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Thank you for your rating! ⭐',
+              style: GoogleFonts.poppins(fontSize: 13)),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        ),
+      );
+      // Refresh so has_reviewed becomes true
+      await provider.fetchRideDetail(ride['id'] as int);
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(provider.errorMessage ?? 'Could not submit rating.',
+              style: GoogleFonts.poppins(fontSize: 13)),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        ),
+      );
+    }
+  }
+
+  String _ratingLabel(int rating) {
+    switch (rating) {
+      case 1:
+        return 'Terrible';
+      case 2:
+        return 'Poor';
+      case 3:
+        return 'Okay';
+      case 4:
+        return 'Good';
+      case 5:
+        return 'Excellent!';
+      default:
+        return '';
+    }
+  }
+
   Future<void> _bookSeat(int rideId, int seatId) async {
     // Capture context-dependent objects before first await
     final provider = context.read<RideProvider>();
@@ -256,6 +429,62 @@ class _PassengerRideStatusScreenState extends State<PassengerRideStatusScreen> {
                         Text(ride['description'].toString(),
                             style: GoogleFonts.poppins(
                                 fontSize: 13, color: AppColors.textSecondary)),
+                        const SizedBox(height: 20),
+                      ],
+
+                      // ── Rate Driver (COMPLETED only) ─────────────────────
+                      if (ride['status'] == 'COMPLETED') ...[
+                        const Divider(),
+                        const SizedBox(height: 12),
+                        if (ride['has_reviewed'] == true)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
+                            decoration: BoxDecoration(
+                              color: AppColors.success.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color:
+                                    AppColors.success.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check_circle_rounded,
+                                    color: AppColors.success, size: 22),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'You have rated this ride ✓',
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.success,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          SizedBox(
+                            width: double.infinity,
+                            height: 54,
+                            child: ElevatedButton.icon(
+                              onPressed: rides.isLoading
+                                  ? null
+                                  : () => _showRatingModal(ride),
+                              icon: const Icon(Icons.star_rounded,
+                                  color: Colors.white),
+                              label: Text(
+                                'Rate This Ride',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.warning,
+                              ),
+                            ),
+                          ),
                         const SizedBox(height: 20),
                       ],
                     ],
