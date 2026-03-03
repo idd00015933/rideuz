@@ -1,0 +1,43 @@
+# ---- Python / Django ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.log
+*.sqlite3
+.env
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Django
+media/
+staticfiles/
+*.pot
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- IDE ----
+.vscode/
+.idea/
+
+# ---- Flutter / Dart ----
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+build/
+ios/Pods/
+android/.gradle/
+android/local.properties
+
+# ---- Secrets ----
+*.pem
+*.key
+*.p12
